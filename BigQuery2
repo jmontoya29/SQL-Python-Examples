@@ -1,0 +1,90 @@
+
+#find the 3 most common non_tax_types in the mascots table and their count
+SELECT  
+non_tax_type,
+COUNT(id) as number_of_mascots
+FROM `bigquery-public-data.ncaa_basketball.mascots` 
+where non_tax_type is not null
+group by non_tax_type
+order by number_of_mascots DESC
+Limit 5;
+
+
+SELECT 
+a.market AS college,
+a.mascot,
+b.conf_name AS conference
+FROM bigquery-public-data.ncaa_basketball.mascots a
+JOIN bigquery-public-data.ncaa_basketball.mbb_teams b
+ON a.market = b.market
+WHERE a.non_tax_type IN ("Warriors")
+ORDER BY b.conf_name ASC;
+
+
+SELECT
+a.mascot, 
+COUNT (DISTINCT(a.market)) as number_of_mascots,
+COUNT (a.mascot) as number_of_games,
+SUM(b.points_game) AS total_points,
+SUM(b.points_game) / COUNT (DISTINCT(a.market)) AS points_per_mascot
+FROM bigquery-public-data.ncaa_basketball.mascots a
+JOIN bigquery-public-data.ncaa_basketball.mbb_teams_games_sr b
+ON a.market = b.market
+WHERE a.mascot IS NOT NULL
+GROUP BY a.mascot
+ORDER BY total_points DESC;
+
+
+SELECT
+a.mascot,
+COUNT(DISTINCT(a.market)) AS number_of_mascots,
+COUNT(a.mascot) AS number_of_games,
+SUM(b.points_game) AS total_points,
+ROUND(SUM(b.points_game) / COUNT(DISTINCT(a.market)), 2) AS points_per_mascot
+FROM `bigquery-public-data.ncaa_basketball.mascots` a
+JOIN `bigquery-public-data.ncaa_basketball.mbb_teams_games_sr` b
+ON a.market = b.market
+WHERE a.mascot IS NOT NULL
+GROUP BY a.mascot
+ORDER BY points_per_mascot DESC;
+
+
+#Write a query that returns the market, mascot, mascot_name from all colleges with conf_name equal to "Big 12"
+SELECT
+b.market, 
+a.mascot, 
+a.mascot_name
+FROM bigquery-public-data.ncaa_basketball.mascots a
+JOIN bigquery-public-data.ncaa_basketball.mbb_teams b
+ON a.market = b.market
+WHERE conf_name = "Big 12";
+
+
+#What is market, mascot, and venue_state of the 5 teams with the largest venue_capacity? 
+
+# Use keywords such as count, distinct, limit, order by, where, in, not in, and, or, avg, sum, max, group by, join
+
+
+SELECT
+a.market AS college,
+a.mascot,
+b.venue_state,
+b.venue_capacity
+FROM bigquery-public-data.ncaa_basketball.mascots a
+JOIN bigquery-public-data.ncaa_basketball.mbb_teams_games_sr b
+ON a.market = b.market
+ORDER BY b.venue_capacity DESC
+LIMIT 5;
+
+#Which conf_name had the most total wins? 
+SELECT
+a.conf_name,
+COUNT(b.game_id) AS total_wins
+FROM `bigquery-public-data.ncaa_basketball.mbb_teams` a
+JOIN `bigquery-public-data.ncaa_basketball.mbb_teams_games_sr`b
+ON a.market = b.market
+WHERE WIN = true
+GROUP BY a.conf_name
+ORDER BY total_wins DESC
+LIMIT 10;
+
