@@ -1,0 +1,132 @@
+SELECT gameId,
+dayNight, -- this field only has 2 possible values
+homeTeamName, 
+awayTeamName,
+duration_minutes,
+attendance
+FROM `bigquery-public-data.baseball.schedules`
+LIMIT 5; 
+
+
+-- lets order the results by duration_minutes
+SELECT gameId,
+dayNight, 
+homeTeamName, 
+awayTeamName,
+duration_minutes,
+attendance
+FROM `bigquery-public-data.baseball.schedules`
+ORDER BY duration_minutes ASC;
+
+
+-- lets order the results by attendance
+SELECT gameId,
+dayNight, 
+homeTeamName, 
+awayTeamName,
+duration_minutes,
+attendance
+FROM `bigquery-public-data.baseball.schedules`
+ORDER BY attendance DESC;
+
+-- this query selects the shortest 3 games and then by team name
+SELECT 
+homeTeamName,
+duration_minutes,
+attendance
+FROM `bigquery-public-data.baseball.schedules`
+ORDER BY duration_minutes ASC, homeTeamName DESC
+LIMIT 3;
+
+
+-- we removed the duration_minutes from the select, we dont need to have that column selected for it to be used later in the order by
+SELECT 
+homeTeamName,
+attendance
+FROM `bigquery-public-data.baseball.schedules`
+ORDER BY duration_minutes ASC, homeTeamName DESC
+LIMIT 3;
+
+-- which team had the highest five attendance
+SELECT 
+homeTeamName,
+attendance
+FROM `bigquery-public-data.baseball.schedules`
+ORDER BY 2 desc
+LIMIT 5;
+
+
+-- in minutes what was the longest game played
+SELECT 
+duration_minutes, 
+ROUND (duration_minutes / 60, 1) AS duration_hours
+FROM `bigquery-public-data.baseball.schedules`
+ORDER BY duration_minutes DESC
+LIMIT 1;
+
+--Which hometeam played a game with lowest attendance? 
+SELECT 
+homeTeamName,
+attendance
+FROM `bigquery-public-data.baseball.schedules`
+ORDER BY 2 ASC
+LIMIT 3;
+
+
+--distinct, find the distinct teams in hometeamnames
+SELECT 
+DISTINCT(homeTeamName)
+FROM `bigquery-public-data.baseball.schedules`;
+
+-- count
+SELECT
+COUNT(gameid) as number_of_games
+FROM `bigquery-public-data.baseball.schedules`;
+
+--count distinct
+SELECT
+COUNT(DISTINCT(awayTeamName)) as number_of_away_teams,
+COUNT(DISTINCT(homeTeamName)) as number_of_home_teams,
+COUNT(DISTINCT(duration_minutes)) as distinct_num_of_minutes,
+FROM `bigquery-public-data.baseball.schedules`;
+
+-- where (it helps filter the rows that you are looking at)
+-- questtion is which team had the most attendance that was not the dodgers or braves and played at night
+SELECT
+homeTeamName,
+attendance
+FROM `bigquery-public-data.baseball.schedules`
+WHERE dayNight = "N"
+AND homeTeamName NOT IN("Dodgers", "Braves")
+ORDER BY attendance DESC
+LIMIT 1;
+
+-- How many games had an attendance greater than 52,000? 
+SELECT
+COUNT (gameID) as num_of_games
+FROM `bigquery-public-data.baseball.schedules`
+WHERE attendance > 52000;
+
+
+-- What are the distinct daynight values? 
+SELECT
+COUNT(DISTINCT(dayNight)) as distinct_time,
+FROM `bigquery-public-data.baseball.schedules`;
+
+
+-- For only day games, what are the 3 hometeams with the lowest duration? 
+SELECT
+homeTeamName
+FROM `bigquery-public-data.baseball.schedules`
+WHERE dayNight = "D"
+ORDER BY duration_minutes ASC
+LIMIT 3;
+
+
+
+-- how many hometeam names have had a least 1 game with attendance > 49,000?
+
+SELECT
+COUNT ((homeTeamName)) as total_teams
+FROM `bigquery-public-data.baseball.schedules`
+WHERE attendance > 49000;
