@@ -1,3 +1,5 @@
+# following queries I used for the baseball database available on bigquery 
+
 SELECT gameId,
 dayNight, -- this field only has 2 possible values
 homeTeamName, 
