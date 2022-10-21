@@ -1,0 +1,11 @@
+# from the bikeshare data find which station had the longest average ride where the user was a subscriber 
+
+SELECT 
+start_station_name,
+ROUND(AVG(duration_sec/60)) as avg_mins,
+MAX(ROUND(duration_sec/60)) as longest_ride
+FROM `bigquery-public-data.san_francisco_bikeshare.bikeshare_trips`
+WHERE subscriber_type = 'Subscriber'
+GROUP BY start_station_name
+ORDER BY avg_mins DESC;
+
