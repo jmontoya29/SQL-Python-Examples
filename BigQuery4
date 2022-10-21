@@ -1,3 +1,4 @@
+# following queries I used for the hacker stories database available on bigquery 
 
 -- pulling the author and highest score
 SELECT 
