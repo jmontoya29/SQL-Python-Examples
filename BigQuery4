@@ -1,0 +1,137 @@
+
+-- pulling the author and highest score
+SELECT 
+id, 
+author, 
+title, 
+score,
+descendants
+ FROM `bigquery-public-data.hacker_news.stories` 
+ ORDER BY score DESC
+ LIMIT 20;
+
+ -- pulling stories where the author's name start with S
+SELECT 
+id, 
+author, 
+title, 
+score,
+descendants
+ FROM `bigquery-public-data.hacker_news.stories` 
+WHERE author LIKE "s%";
+
+
+ -- pulling stories where the author's name includes blue
+SELECT 
+id, 
+author, 
+title, 
+score,
+descendants
+ FROM `bigquery-public-data.hacker_news.stories` 
+WHERE author LIKE "%blue%";
+
+ -- pulling stories where the author's name includes blue in both lower and upper case
+SELECT 
+id, 
+author, 
+title, 
+score,
+descendants
+ FROM `bigquery-public-data.hacker_news.stories` 
+WHERE LOWER(author) LIKE "%blue%";
+
+
+
+ -- pulling stories where all the titles includes bigquery
+SELECT 
+id, 
+author, 
+title, 
+score,
+descendants
+ FROM `bigquery-public-data.hacker_news.stories` 
+WHERE LOWER(title) LIKE "%bigquery%";
+
+-- how many distinct authoers includes queen in both lower and upper case
+SELECT 
+DISTINCT (author)
+ FROM `bigquery-public-data.hacker_news.stories` 
+ WHERE lower(author) LIKE "%queen%";
+
+
+ -- length
+SELECT
+author,
+LENGTH(author) as length_of_name
+FROM `bigquery-public-data.hacker_news.stories` 
+ORDER BY length_of_name DESC;
+
+
+-- pull titles who's length is 10
+SELECT
+COUNT (title) AS number_of_titles
+FROM `bigquery-public-data.hacker_news.stories` 
+WHERE LENGTH (title) = 10;
+
+-- pull author who's length is 15
+SELECT
+COUNT(DISTINCT (author)) AS number_of_author,
+COUNT(title) AS number_of_stories
+FROM `bigquery-public-data.hacker_news.stories` 
+WHERE LENGTH (author) = 15;
+
+
+-- CALCULATED FIELD
+SELECT 
+author,
+score,
+score+1 AS score_plus_one
+FROM `bigquery-public-data.hacker_news.stories`
+WHERE score IS NOT NULL
+ORDER BY descendants DESC;
+
+-- summary fields
+
+SELECT 
+MAX (score) AS max_score,
+AVG(score) AS avg_score,
+SUM(score) AS sum_of_scores
+FROM `bigquery-public-data.hacker_news.stories`;
+
+-- GROUPBY
+SELECT 
+author,
+AVG(score) AS avg_score,
+COUNT(id) AS number_of_stories
+FROM `bigquery-public-data.hacker_news.stories`
+GROUP BY author
+HAVING COUNT(id) > 200;
+
+
+
+-- How many distinct titles are in the stories table? 
+SELECT
+COUNT(DISTINCT (title)) AS number_of_storie
+FROM `bigquery-public-data.hacker_news.stories` ;
+
+
+
+-- who is the author with the most total descendants? 
+SELECT
+author
+FROM `bigquery-public-data.hacker_news.stories` 
+ORDER BY descendants DESC
+LIMIT 1;
+
+-- how many titles contain the word bigquery
+
+-- how many authors have an average score > 12 and have at least 15 stories? 
+SELECT
+author,
+AVG(score) as avg_score,
+COUNT(id) AS total_stories
+FROM `bigquery-public-data.hacker_news.stories` 
+GROUP BY author
+HAVING avg_score > 12
+AND total_stories >= 15;
