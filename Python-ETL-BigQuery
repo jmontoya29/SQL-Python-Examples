@@ -1,5 +1,6 @@
-#In this segment here I'm creating an ETL pipeline to take NYC Open Data (ferry ridership), creating dimension and fact tables and loading it to BigQuery, where it
-# can also be loaded to Tableau to view the data.
+#In this segment here I'm creating an ETL pipeline to take NYC Open Data (ferry ridership) by connecting through their API, 
+# creating dimension and fact tables so that I can make datasets in BigQuery, where it you can query it but can also load it through Tableau to visualize the data.
+
 
 
 Building an ETL Pipeline
