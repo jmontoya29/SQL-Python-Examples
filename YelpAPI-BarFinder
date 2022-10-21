@@ -1,0 +1,98 @@
+#in the code below, what I'm doing is taking the addresses and adding their latitude and longitude, connecting to the yelp api, searching for 
+# bars all within a specific range from each of the schools mentioned below.
+
+import pandas as pd
+import time
+import requests
+import urllib.parse
+def add_lat_long(dataframe,
+                 address_column: str):
+    
+    print(f"attempting to add lat and long to {dataframe.shape[0]} rows")
+    start = time.time()
+    
+    # add lat and long as dataframe columns
+    dataframe["latitude"] = None
+    dataframe["longitude"] = None
+    
+    # add lat and long
+    for idx, details in dataframe.iterrows():
+
+        address = details[address_column]
+        
+        url = 'https://nominatim.openstreetmap.org/search/' + urllib.parse.quote(address) +'?format=json'
+        response = requests.get(url).json()
+
+        try:
+            dataframe.loc[idx, "latitude"] = float(response[0]["lat"])
+            dataframe.loc[idx, "longitude"] = float(response[0]["lon"])
+            
+        except:
+            print(f"lat, long failed for {address}")
+
+    end = time.time()
+    print(f"completed lat, long function in {round(end-start, 2)} seconds")
+    return dataframe
+df = pd.DataFrame(data = {"college" : ["Pace University",
+                                       "Baruch College",
+                                       "Hunter College"],
+                         "location" : ["Pace University Midtown Center, New York, NY 10176",
+                                       "17 Lexington Ave, New York, NY 10010",
+                                       "413 E 69th St, New York, NY 10021"]})
+
+df
+df = add_lat_long(dataframe = df,
+                  address_column = "location")
+df
+from yelp.client import Client
+my_api_key =r"EUZyTk5lV1TkK4GZJ2pbXO4hJh3FUzBk7W5UalTS4RYExyHMg3oZtQUrW8P6oNhLVJTjdt_6s2a1kgID09-Vh7jBBM-C3ryf8kurWeMCC9safs28NVV6O7ZhES9HY3Yx"
+client = Client(my_api_key)
+client
+url = 'https://api.yelp.com/v3/businesses/search'
+
+term = 'bar'
+location = '55 Lexington Ave, New York, NY 10010'
+SEARCH_LIMIT = 25
+radius = 800 # .5 miles
+url_params = {
+                'term': term.replace(' ', '+'),
+                'location': location.replace(' ', '+'),
+                'limit': SEARCH_LIMIT,
+                'radius': radius
+            }
+
+headers = {"Authorization": f"Bearer {my_api_key}"}
+import requests
+
+# make the request to Yelp, get a response
+response = requests.get(url, headers=headers, params=url_params)
+print(response)
+print(type(response.text))
+import pandas as pd
+
+# turn your Yelp json response into a pandas dataframe
+df = pd.DataFrame.from_dict(response.json()['businesses'])
+print(f"shape of your dataframe: {df.shape}")
+# subset the columns in your dataframe
+df = df[["name", "review_count",
+         "rating", "price",
+         "distance", "location"]]
+
+df.head(3)
+# split your location column into multiple columns
+df["street"] = [d.get('address1') for d in df['location']]
+df["city"] = [d.get('city') for d in df['location']]
+df["state"] = [d.get('state') for d in df['location']]
+df["country"] = [d.get('country') for d in df['location']]
+
+
+# drop the location column
+df = df.drop(['location'], axis=1)
+df
+df["address"] = df['street'] + ', ' + df['city'] + ', ' + df['state']
+df
+bars_lat_long_df = add_lat_long(dataframe = df, 
+                               address_column = "address")
+bars_lat_long_df
+bars_lat_long_df
+ 
