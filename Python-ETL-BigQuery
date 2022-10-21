@@ -1,0 +1,318 @@
+#In this segment here I'm creating an ETL pipeline to take NYC Open Data (ferry ridership), creating dimension and fact tables and loading it to BigQuery, where it
+# can also be loaded to Tableau to view the data.
+
+
+Building an ETL Pipeline
+
+Step 0: Install the required python packages
+pip install --upgrade sodapy
+pip install --upgrade db-dtypes
+pip install --upgrade pyarrow
+pip install --upgrade google-cloud-bigquery
+Now, on the top of your Notebook select "Kernel" -> "Restart and Clear Output"
+Then, continue from the next cell
+
+Step 1: Setup your NYC Open Data variables 
+# import libraries
+import pandas as pd
+import numpy as np
+from sodapy import Socrata
+from google.cloud import bigquery
+from google.oauth2 import service_account
+data_url = 'data.cityofnewyork.us'
+data_set = 't5n6-gx8c'
+app_token = 'lDzs1kVDPXFXOEsysKXkUP3Su'
+
+# create the client that points to the API endpoint
+nyc_open_data_client = Socrata(data_url, app_token, timeout = 200)
+print(f"nyc open data client name is: {nyc_open_data_client}")
+print(f"nyc open data client data type is: {type(nyc_open_data_client)}")
+Step 2: Setup your Google BigQuery variables (ACTION REQUIRED HERE)
+If you did not create a key path in class on 3/30/22 (which created a json file on your computer), you must create one to continue:
+
+# CHANGE THIS TO YOUR FILE PATH
+key_path = r'C:\Users\jmontoya\PycharmProjects\CIS 9640\cis9440-362521-f9693246999c.json'
+# run this cell without changing anything to setup your credentials
+credentials = service_account.Credentials.from_service_account_file(key_path,
+                                                                    scopes=["https://www.googleapis.com/auth/cloud-platform"],)
+bigquery_client = bigquery.Client(credentials = credentials,
+                                 project = credentials.project_id)
+
+print(f"bigquery client name is: {bigquery_client}")
+print(f"bigquery client data type is: {type(bigquery_client)}")
+Now, you need to create your dataset id:
+
+dataset_id = 'cis9440-362521.etl_dataset'   # PASTE THIS DATASET ID FROM ABOVE STEPS
+
+dataset_id = dataset_id.replace(':', '.')
+print(f"your dataset_id is: {dataset_id}")
+
+# Get the total number of records in our the entire data set
+total_record_count = nyc_open_data_client.get(data_set, select = "COUNT(*)")
+
+print(f"total records in {data_set}: {total_record_count[0]['COUNT']}")
+# Get the total number of records in our target data set
+
+# UPDATE YOUR WHERE FILTER HERE IF NEEDED, below is only an example
+target_record_count = nyc_open_data_client.get(data_set,
+                                               where = "Date > '2022-05-01'",
+                                               select= "COUNT(*)")
+print(f"target records in {data_set}: {int(target_record_count[0]['COUNT'])}")
+
+
+def extract_socrata_data(chunk_size = 2500,
+                         data_set = data_set,
+                         where = None):
+    
+    # measure time this function takes
+    import time
+    start_time = time.time()
+    
+    # get total number or records
+    if where == None:
+        total_records = int(nyc_open_data_client.get(data_set,
+                                                     select= "COUNT(*)")[0]["COUNT"])
+    else:
+        total_records = int(nyc_open_data_client.get(data_set,
+                                                     where = where,
+                                                     select= "COUNT(*)")[0]["COUNT"])
+    
+    # start at 0, empty list for results
+    start = 0                   
+    results = []                
+
+    while True:
+
+        if where == None:
+            # fetch the set of records starting at 'start'
+            results.extend(nyc_open_data_client.get(data_set,
+                                                    offset = start,
+                                                    limit = chunk_size))
+            
+        elif where != None:
+            results.extend(nyc_open_data_client.get(data_set,
+                                                    where = where,
+                                                    offset = start,
+                                                    limit = chunk_size))
+        # update the starting record number
+        start = start + chunk_size
+
+        # if we have fetched all of the records (we have reached total_records), exit loop
+        if (start > total_records):
+            break
+
+    # convert the list into a pandas data frame
+    data = pd.DataFrame.from_records(results)
+
+    end_time = time.time()
+    print(f"function took {round(end_time - start_time, 1)} seconds")
+
+    print(f"the shape of your dataframe is: {data.shape}")
+    return data
+data = extract_socrata_data(chunk_size = 2500,
+                         data_set = data_set,
+                         where = "Date > '2022-05-01'")
+                         
+Step 4: Data Profiling
+
+# what are the columns in our dataframe?
+data.columns
+# create and run a function to ceate data profiling dataframe
+
+def create_data_profiling_df(data):
+    
+    # create an empty dataframe to gather information about each column
+    data_profiling_df = pd.DataFrame(columns = ["column_name",
+                                                "column_type",
+                                                "unique_values",
+                                                "duplicate_values",
+                                                "null_values",
+                                                "non_null_values"])
+
+    # loop through each column to add rows to the data_profiling_df dataframe
+    for column in data.columns:
+
+        info_dict = {}
+
+        try:
+            info_dict["column_name"] = column
+            info_dict["column_type"] = data[column].dtypes
+            info_dict["unique_values"] = len(data[column].unique())
+            info_dict["duplicate_values"] = data[column].count() - len(data[column].dropna().unique())
+            info_dict["null_values"] = data[column].isna().sum()
+            info_dict["non_null_values"] = data[column].count()
+
+        except:
+            print(f"unable to read column: {column}, you may want to drop this column")
+
+        data_profiling_df = data_profiling_df.append(info_dict, ignore_index=True)
+
+    data_profiling_df.sort_values(by = ['unique_values', "non_null_values"],
+                                  ascending = [False, False],
+                                  inplace=True)
+    
+    return data_profiling_df
+# view your data profiling dataframe
+data_profiling_df = create_data_profiling_df(data = data)
+
+data_profiling_df
+
+# ACTION REQUIRED
+# If any of the above columns were unable to be read by your function, you may want to drop them
+# To drop a column, update the column name in the line below and run this cell
+data.drop(["typeday"], axis = 1, inplace = True)
+Step 5: Data Cleansing
+drop unneeded columns
+drop duplicate rows
+check for outliers
+# Run this to look at a list of your columns
+data.info()
+# ACTION REQUIRED
+# edit the drop_columns list below to include all the columns you would like to drop
+# then, run this cell to drop columns
+
+drop_columns = ["typeday"]
+
+for column in drop_columns:
+    try:
+        data.drop(column, axis = 1, inplace = True)
+    except:
+        print(f"unable to drop {column}")
+
+print(f"columns left in dataframe: {data.columns}")
+# find number of duplicate rows
+
+print(f"number of duplicate rows: {len(data[data.duplicated()])}")
+# drop duplicate rows based on entire row
+data = data.drop_duplicates(keep = 'first')
+
+# Or, based on a subset of rows, uncomment below and adjust accordingly
+## data = data.drop_duplicates(subset = ["subset column"], keep = 'first')
+## data = data.drop_duplicates(subset = ["subset column 1", "subset column 2"], keep = 'first')
+
+print(f"number of rows after duplicates dropped: {len(data)}")
+# drop rows with null values
+#data.dropna(subset = ["route"], inplace = True)  #using subset you drop specific columns names with nulls
+data.dropna(thresh = 2, inplace = True) # drop rows if it has more than 2 null values 
+print(len(data))
+data ['boardings'] = data['boardings'].astype(float)
+ferry_capacity = 344 
+data = data [data["boardings"]<= 344]
+ferry_capacity = 344
+
+data = data[data["boardings"] <= ferry_capacity]
+Step 4: Create Location Dimension
+# first, copy the entire table
+location_dim = data.copy()
+location_dim.columns
+# second, subset for only the wanted columns in the dimension
+location_dim = location_dim[["route",
+                             "stop",
+                             "direction"]]
+# third, drop duplicate rows in dimension
+unique_row = ["route", 'stop', 'direction']
+location_dim = location_dim.drop_duplicates(subset = unique_row, keep = 'first')
+location_dim = location_dim.reset_index(drop = True)
+location_dim
+# fourth, add location_id as a surrogate key
+location_dim.insert(0, 'location_id', range(1, 1 + len(location_dim)))
+location_dim
+# fifth, add the location_id to the data table
+data = data.merge(location_dim,
+                  left_on = unique_row,
+                  right_on = unique_row,
+                  how = 'left')
+
+data.head(100)
+Step 5: Create Date Dimension
+data["date"] = pd.to_datetime(data['date'])
+data["date"]= data["date"].dt.floor('D')
+data['date']
+## ACTION REQUIRED: update the start and end date at the bottom of the sql_query variable to fit your needs
+
+sql_query = """
+            SELECT
+              CONCAT (FORMAT_DATE("%Y",d),FORMAT_DATE("%m",d),FORMAT_DATE("%d",d)) as date_id,
+              d AS full_date,
+              FORMAT_DATE('%w', d) AS week_day,
+              FORMAT_DATE('%A', d) AS day_name,
+              FORMAT_DATE('%B', d) as month_name,
+              FORMAT_DATE('%Q', d) as fiscal_qtr,
+              FORMAT_DATE('%Y', d) AS year,
+            FROM (
+              SELECT
+                *
+              FROM
+                UNNEST(GENERATE_DATE_ARRAY('2020-01-01', '2024-01-01', INTERVAL 1 DAY)) AS d )
+            """
+
+# store extracted data in new dataframe
+date_dim = bigquery_client.query(sql_query).to_dataframe()
+
+# validate that > 0 rows have been extracted and return dataframe
+if len(date_dim) > 0:
+    print(f"date dimension created successfully, shape of dimension: {date_dim.shape}")
+else:
+    print("date dimension FAILED")
+# create date_id column in the Fact Table
+data['date_id'] = data['date'].apply(lambda x: pd.to_datetime(x).strftime("%Y%m%d"))
+data.drop("date", axis = 1, inplace = True)
+data
+Create time_dim
+time_ids = []
+hours = []
+minutes = []
+
+for hour in range(0,24):
+    for minute in range(0,60):
+        time_ids.append((str(hour) + str(minute)).zfill(4))
+        hours.append(hour)
+        minutes.append(minute)
+        
+time_dim_dict = {"time_id" : time_ids,
+                "hour" : hours,
+                "minute" : minutes}
+
+time_dim = pd.DataFrame(data = time_dim_dict)
+time_dim
+data["hour"] = data["hour"].str.zfill(2).str.pad(4, side='right', fillchar='0')
+data.rename(columns = {'hour':'time_id'}, inplace = True)
+data["time_id"]
+Step 5: Creating Fact(s)
+# take a subset of fact_table for only the needed columns: which are keys and measures
+fact_table = data [["time_id", "date_id", "location_id", "boardings"]]
+fact_table
+Step 6: Deliver Facts and Dimensions to Data Warehouse (BigQuery)
+# create a function to load dataframes to BigQuery
+
+def load_table_to_bigquery(df,
+                          table_name,
+                          dataset_id):
+
+    dataset_id = dataset_id #change 301800 to match your project id
+
+    dataset_ref = bigquery_client.dataset(dataset_id)
+    job_config = bigquery.LoadJobConfig()
+    job_config.autodetect = True
+    job_config.write_disposition = "WRITE_TRUNCATE"
+
+    upload_table_name = f"{dataset_id}.{table_name}"
+    
+    load_job = bigquery_client.load_table_from_dataframe(df,
+                                                upload_table_name,
+                                                job_config = job_config)
+        
+    print(f"completed job {load_job}")
+load_table_to_bigquery(df = fact_table,
+                          table_name = 'ferry_ridership_fact',
+                          dataset_id = dataset_id)
+load_table_to_bigquery(df = location_dim,
+                          table_name = 'location_dim',
+                          dataset_id = dataset_id)
+load_table_to_bigquery(df = date_dim,
+                          table_name = 'date_dim',
+                          dataset_id = dataset_id)
+load_table_to_bigquery(df = time_dim,
+                          table_name = 'time_dim',
+                          dataset_id = dataset_id)
+ 
