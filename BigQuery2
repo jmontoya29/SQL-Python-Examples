@@ -1,3 +1,4 @@
+# following queries I used for the ncaa basketball database available on bigquery 
 
 #find the 3 most common non_tax_types in the mascots table and their count
 SELECT  
